@@ -1,4 +1,6 @@
- Web3Bridge Solidity and Blockchain Learning Repository
+
+
+# Web3Bridge Solidity and Blockchain Learning Repository
 
 Welcome to my Web3Bridge Solidity and Blockchain Learning Repository! As a beginner diving into the world of Web3, this repository documents my journey through learning Solidity, smart contracts, and blockchain technology using Web3Bridge. Here you'll find a collection of practical examples, theoretical insights, and coursework from my educational experience.
 
