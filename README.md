@@ -124,5 +124,5 @@ This repository is licensed under the MIT License. See the [LICENSE](LICENSE) fi
 
 ## Contact
 
-For questions, feedback, or to connect, you can reach me at [your-email@example.com](mailto:ulokangozi@gmail.com).
+For questions, feedback, or to connect, you can reach me at (mailto:ulokangozi@gmail.com).
 
