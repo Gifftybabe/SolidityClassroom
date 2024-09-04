@@ -29,4 +29,27 @@ function insertDetails(string memory _name, uint _rollNo, bool _pass) public {
 function fetchDetails(uint _rollNo) public view returns(Student memory) {
     return studentDetails[_rollNo];
 }
+
+
+// Nestest Mapping.
+
+/* mapping(uint => mapping (uint => bool)) data;
+
+function insertData(uint row, uint column, bool value) public {
+    data[row][column] = value;
+}
+function fetchData(uint row, uint column) public view returns(bool) {
+    return data[row][column];
+}
+*/ 
+
+//Mapping with array
+mapping (address => uint[]) public marks;
+
+function insertMarks(address _address, uint _mark) public {
+    marks[_address].push(_mark);
+}
+function fetchMarks(address _address) public view returns (uint[] memory) {
+    return marks[_address];
+}
 }
