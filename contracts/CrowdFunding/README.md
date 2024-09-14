@@ -22,7 +22,7 @@ To interact with this smart contract, you'll need the following tools:
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/GifftyCode/CrowdFunding.git
+   git clone https://github.com/Gifftybabe/CrowdFunding.git
    cd CrowdFunding
    ```
 
