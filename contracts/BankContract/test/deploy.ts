@@ -2,7 +2,7 @@ import {
   loadFixture,
 } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { expect } from "chai";
-import hre from "hardhat";
+import hre, { ethers } from "hardhat";
 
 describe("DeployBank", function () {
 
@@ -16,105 +16,146 @@ describe("DeployBank", function () {
     return { bankAccount };
   }
 
-  describe("Deployment", function () {
-    it("Should give user access to create account easily", async function () {
+  describe("CreateAccount", function () {
+    it("Should check if user has registered", async function () {
       const { bankAccount } = await loadFixture(deployBankAccount);
+      const [acc] = await hre.ethers.getSigners();
 
-      const name = 'Abdulyekeen Lukeman';
-      const age = 21
-
-      expect(await bankAccount.createAccount(name, age)).to.equal(unlockTime);
+      expect((await bankAccount.users(acc)).hasRegistered).to.equal(false);
     });
 
-    it("Should set the right owner", async function () {
-      const { lock, owner } = await loadFixture(deployOneYearLockFixture);
+    it("Should revert if user has registered", async function () {
+      const { bankAccount } = await loadFixture(deployBankAccount);
+      const [acc1, acc2] = await hre.ethers.getSigners();
 
-      expect(await lock.owner()).to.equal(owner.address);
+      const name = 'Abdulyekeen Lukman';
+      const age = 21;
+      await bankAccount.connect(acc1).createAccount(name, age);
+
+      await expect(bankAccount.connect(acc1).createAccount(name, age)).to.be.revertedWithCustomError(bankAccount, 'AlreadyRegistered');
     });
 
-    it("Should receive and store the funds to lock", async function () {
-      const { lock, lockedAmount } = await loadFixture(
-        deployOneYearLockFixture
-      );
+    it("Should confirm that an account was created successfully", async function () {
+      const { bankAccount } = await loadFixture(deployBankAccount);
+      const [acc1, acc2] = await hre.ethers.getSigners();
 
-      expect(await hre.ethers.provider.getBalance(lock.target)).to.equal(
-        lockedAmount
-      );
-    });
+      const name = 'Abdulyekeen Lukman';
+      const age = 21;
+      await bankAccount.connect(acc1).createAccount(name, age);
 
-    it("Should fail if the unlockTime is not in the future", async function () {
-      // We don't use the fixture here because we want a different deployment
-      const latestTime = await time.latest();
-      const Lock = await hre.ethers.getContractFactory("Lock");
-      await expect(Lock.deploy(latestTime, { value: 1 })).to.be.revertedWith(
-        "Unlock time should be in the future"
-      );
+
+      expect (await bankAccount.connect(acc1).userCount()).to.be.equal(1);
     });
   });
 
-  describe("Withdrawals", function () {
-    describe("Validations", function () {
-      it("Should revert with the right error if called too soon", async function () {
-        const { lock } = await loadFixture(deployOneYearLockFixture);
+  describe("Deposit", function () {
+    it("Should check if value passed is less than 1 ether", async function () {
+      const { bankAccount } = await loadFixture(deployBankAccount);
+      const [acc] = await hre.ethers.getSigners();
 
-        await expect(lock.withdraw()).to.be.revertedWith(
-          "You can't withdraw yet"
-        );
-      });
+      const value = ethers.parseUnits("0.5", 18);
 
-      it("Should revert with the right error if called from another account", async function () {
-        const { lock, unlockTime, otherAccount } = await loadFixture(
-          deployOneYearLockFixture
-        );
-
-        // We can increase the time in Hardhat Network
-        await time.increaseTo(unlockTime);
-
-        // We use lock.connect() to send a transaction from another account
-        await expect(lock.connect(otherAccount).withdraw()).to.be.revertedWith(
-          "You aren't the owner"
-        );
-      });
-
-      it("Shouldn't fail if the unlockTime has arrived and the owner calls it", async function () {
-        const { lock, unlockTime } = await loadFixture(
-          deployOneYearLockFixture
-        );
-
-        // Transactions are sent using the first signer by default
-        await time.increaseTo(unlockTime);
-
-        await expect(lock.withdraw()).not.to.be.reverted;
-      });
+      await expect(bankAccount.connect(acc).deposit({value:value})).to.be.revertedWithCustomError(bankAccount, "DepositTooLow");
     });
 
-    describe("Events", function () {
-      it("Should emit an event on withdrawals", async function () {
-        const { lock, unlockTime, lockedAmount } = await loadFixture(
-          deployOneYearLockFixture
-        );
+    it("Should revert if user has registered", async function () {
+      const { bankAccount } = await loadFixture(deployBankAccount);
+      const [acc1, acc2] = await hre.ethers.getSigners();
 
-        await time.increaseTo(unlockTime);
+      const name = 'Abdulyekeen Lukman';
+      const age = 21;
+      await bankAccount.connect(acc1).createAccount(name, age);
 
-        await expect(lock.withdraw())
-          .to.emit(lock, "Withdrawal")
-          .withArgs(lockedAmount, anyValue); // We accept any value as `when` arg
-      });
+      const value = ethers.parseUnits("2", 18);
+
+      await expect(bankAccount.connect(acc2).deposit({value:value})).to.be.revertedWithCustomError(bankAccount, 'NotRegistered');
     });
 
-    describe("Transfers", function () {
-      it("Should transfer the funds to the owner", async function () {
-        const { lock, unlockTime, lockedAmount, owner } = await loadFixture(
-          deployOneYearLockFixture
-        );
+    it("Should confirm that the contract account was credited", async function () {
+      const { bankAccount } = await loadFixture(deployBankAccount);
+      const [acc1, acc2] = await hre.ethers.getSigners();
 
-        await time.increaseTo(unlockTime);
+      const name = 'Abdulyekeen Lukman';
+      const age = 21;
+      await bankAccount.connect(acc1).createAccount(name, age);
 
-        await expect(lock.withdraw()).to.changeEtherBalances(
-          [owner, lock],
-          [lockedAmount, -lockedAmount]
-        );
-      });
+      const value = ethers.parseUnits("2", 18);
+      await bankAccount.connect(acc1).deposit({value:value});
+
+      expect ((await bankAccount.connect(acc1).users(acc1)).balance).to.be.equal(value);
     });
+
+    it("Should emmit event deposited successfully", async function () {
+      const { bankAccount } = await loadFixture(deployBankAccount);
+      const [acc1, acc2] = await hre.ethers.getSigners();
+
+      const name = 'Abdulyekeen Lukman';
+      const age = 21;
+      await bankAccount.connect(acc1).createAccount(name, age);
+
+      const value = ethers.parseUnits("2", 18);
+      await bankAccount.connect(acc1).deposit({value:value});
+
+      expect (await bankAccount.connect(acc1).deposit({value:value})).to.emit(bankAccount,"DepositMade")
+      .withArgs(acc1,value);
+    });
+  });
+
+  describe("Transfer", function () {
+    it("Should check if user registered before transfer", async function () {
+      const { bankAccount } = await loadFixture(deployBankAccount);
+      const [acc1, acc2] = await hre.ethers.getSigners();
+
+      const name = 'Abdulyekeen Lukman';
+      const age = 21;
+      await bankAccount.connect(acc1).createAccount(name, age);
+
+      const value = ethers.parseUnits("2", 18);
+      await bankAccount.connect(acc1).deposit({value:value});
+
+      await expect(bankAccount.connect(acc2).transfer(acc1, value)).to.be.revertedWithCustomError(bankAccount,"NotRegistered");
+    });
+
+    // it("Should revert if user has registered", async function () {
+    //   const { bankAccount } = await loadFixture(deployBankAccount);
+    //   const [acc1, acc2] = await hre.ethers.getSigners();
+
+    //   const name = 'Abdulyekeen Lukman';
+    //   const age = 21;
+    //   await bankAccount.connect(acc1).createAccount(name, age);
+
+    //   const value = ethers.parseUnits("2", 18);
+
+    //   await expect(bankAccount.connect(acc2).deposit({value:value})).to.be.revertedWithCustomError(bankAccount, 'NotRegistered');
+    // });
+
+    // it("Should confirm that the contract account was credited", async function () {
+    //   const { bankAccount } = await loadFixture(deployBankAccount);
+    //   const [acc1, acc2] = await hre.ethers.getSigners();
+
+    //   const name = 'Abdulyekeen Lukman';
+    //   const age = 21;
+    //   await bankAccount.connect(acc1).createAccount(name, age);
+
+    //   const value = ethers.parseUnits("2", 18);
+    //   await bankAccount.connect(acc1).deposit({value:value});
+
+    //   expect ((await bankAccount.connect(acc1).users(acc1)).balance).to.be.equal(value);
+    // });
+
+    // it("Should emmit event deposited successfully", async function () {
+    //   const { bankAccount } = await loadFixture(deployBankAccount);
+    //   const [acc1, acc2] = await hre.ethers.getSigners();
+
+    //   const name = 'Abdulyekeen Lukman';
+    //   const age = 21;
+    //   await bankAccount.connect(acc1).createAccount(name, age);
+
+    //   const value = ethers.parseUnits("2", 18);
+    //   await bankAccount.connect(acc1).deposit({value:value});
+
+    //   expect (await bankAccount.connect(acc1).deposit({value:value})).to.emit(bankAccount,"DepositMade")
+    //   .withArgs(acc1,value);
+    // });
   });
 });
